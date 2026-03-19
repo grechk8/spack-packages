@@ -1,0 +1,12 @@
+--- a/numerics/ginkgo/SF_ginkgo_solver.cc
++++ b/numerics/ginkgo/SF_ginkgo_solver.cc
+@@ -1,12 +1,18 @@
+@@
+-  auto iterative_solver = dynamic_cast<gko::solver::IterativeBase*>(this->solver.get());
++  auto iterative_solver = dynamic_cast<gko::solver::IterativeBase*>(this->solver.get());
++  if (!iterative_solver) {
++    throw std::runtime_error(
++        "Ginkgo solver is not iterative (cannot set stopping criterion)");
++  }
+   iterative_solver->set_stop_criterion_factory(this->stop);
+ }

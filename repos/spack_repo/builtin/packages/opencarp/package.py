@@ -67,11 +67,11 @@ class Opencarp(CMakePackage):
 
     variant("carputils", default=False, description="Installs the carputils framework")
     variant("meshtool", default=False, description="Installs the meshtool software")
-    variant("mpi", default=True, description="Enable MPI support")
     variant("openmp", default=True, description="Enable OpenMP support")
     variant("ginkgo", default=False, description="Build with Ginkgo linear solvers")
     variant("cuda", default=False, description="Enable CUDA support")
 
+    # ????
     variant(
         "cuda_arch",
         default="none",
@@ -80,8 +80,6 @@ class Opencarp(CMakePackage):
         description="CUDA architectures for CMAKE_CUDA_ARCHITECTURES",
         when="+cuda",
     )
-
-
 
 
     conflicts("+cuda", when="~ginkgo", msg="+cuda is supported only with +ginkgo")
@@ -104,22 +102,18 @@ class Opencarp(CMakePackage):
     depends_on("python")
     depends_on("zlib-api")
     depends_on("perl")
+    depends_on("mpi")
+    depends_on("openmp", when="+openmp")
 
-    depends_on("mpi", when="+mpi")
-
-
-    # Ginkgo is optional
-    depends_on("rapidjson", when="+ginkgo", type="build")
+    # Necessary?
+    # # Ginkgo is optional
+    # depends_on("rapidjson", when="+ginkgo", type="build")
 
     # Base requirement: allow multiple Ginkgo versions (1.5, 1.6, ..., develop)
     depends_on("ginkgo@1.5:", when="+ginkgo")
 
-    # sde variant exists only for newer Ginkgo versions (>=1.7)
-    depends_on("ginkgo~sde", when="+ginkgo ^ginkgo@1.7:")
-
     # Mirror opencarp features onto ginkgo (force overlay namespace)
-    depends_on("ginkgo+mpi",    when="+ginkgo+mpi")
-    depends_on("ginkgo~mpi",    when="+ginkgo~mpi")
+    depends_on("ginkgo+mpi", when="+ginkgo")
 
     depends_on("ginkgo+openmp", when="+ginkgo+openmp")
     depends_on("ginkgo~openmp", when="+ginkgo~openmp")
@@ -152,32 +146,32 @@ class Opencarp(CMakePackage):
         depends_on("py-carputils@oc" + ver, when="@" + ver + " +carputils")
         depends_on("meshtool@oc" + ver, when="@" + ver + " +meshtool")
 
+    # Manages by Ginkgo?
+    # def _cuda_arch_str(self):
+    #     if "cuda_arch" not in self.spec.variants:
+    #         return None
+    #     archs = self.spec.variants["cuda_arch"].value
+    #     if not archs or archs == ("none",) or archs == "none":
+    #         return None
+    #     if isinstance(archs, str):
+    #         return archs
+    #     return ";".join(archs)
 
-    def _cuda_arch_str(self):
-        if "cuda_arch" not in self.spec.variants:
-            return None
-        archs = self.spec.variants["cuda_arch"].value
-        if not archs or archs == ("none",) or archs == "none":
-            return None
-        if isinstance(archs, str):
-            return archs
-        return ";".join(archs)
 
+    # def _ginkgo_cmake_dir(self):
+    #     prefix = self.spec["ginkgo"].prefix
+    #     candidates = [
+    #         join_path(prefix, "lib", "cmake", "Ginkgo"),
+    #         join_path(prefix, "lib64", "cmake", "Ginkgo"),
+    #     ]
+    #     for d in candidates:
+    #         if os.path.isdir(d):
+    #             return d
+    #     return str(prefix)
 
-    def _ginkgo_cmake_dir(self):
-        prefix = self.spec["ginkgo"].prefix
-        candidates = [
-            join_path(prefix, "lib", "cmake", "Ginkgo"),
-            join_path(prefix, "lib64", "cmake", "Ginkgo"),
-        ]
-        for d in candidates:
-            if os.path.isdir(d):
-                return d
-        return str(prefix)
-
-    def setup_build_environment(self, env):
-        if "+ginkgo" in self.spec:
-            env.prepend_path("CPATH", self.spec["rapidjson"].prefix.include)
+    # def setup_build_environment(self, env):
+    #     if "+ginkgo" in self.spec:
+    #         env.prepend_path("CPATH", self.spec["rapidjson"].prefix.include)
 
 
     def cmake_args(self):
@@ -187,81 +181,69 @@ class Opencarp(CMakePackage):
             self.define("SPACK_BUILD", True),
 
             self.define("BUILD_EXTERNAL", False),
-            self.define("ENABLE_MPI", "+mpi" in spec),
-            self.define("USE_OPENMP", "+openmp" in spec),
-            self.define("USE_CUDA", "+cuda" in spec),
+            self.define("USE_OPENMP", "UTILS" if "+openmp" in spec else "OFF")
         ]
 
 
-        if "+mpi" in spec:
-            args += [
-                self.define("MPI_C_COMPILER", spec["mpi"].mpicc),
-                self.define("MPI_CXX_COMPILER", spec["mpi"].mpicxx),
-                self.define("MPIEXEC_EXECUTABLE", join_path(spec["mpi"].prefix.bin, "mpiexec")),
+        # if "+mpi" in spec:
+        #     args += [
+        #         self.define("MPI_C_COMPILER", spec["mpi"].mpicc),
+        #         self.define("MPI_CXX_COMPILER", spec["mpi"].mpicxx),
+        #         self.define("MPIEXEC_EXECUTABLE", join_path(spec["mpi"].prefix.bin, "mpiexec")),
 
-            ]
+        #     ]
 
         if "+ginkgo" in spec:
             args += [
                 self.define("ENABLE_GINKGO", True),
-                self.define("CARP_USE_GINKGO", True),
-                self.define("GINKGO_DIR", spec["ginkgo"].prefix),
-                self.define("Ginkgo_DIR", self._ginkgo_cmake_dir()),
-                # self.define("CMAKE_PREFIX_PATH", spec["ginkgo"].prefix),
-            ]
-        else:
-            args += [
-                self.define("ENABLE_GINKGO", False),
-                self.define("CARP_USE_GINKGO", False),
             ]
 
+        # # CUDA
+        # if "+cuda" in spec:
+        #     args += [
+        #         self.define("CUDAToolkit_ROOT", spec["cuda"].prefix),
+        #         self.define("CMAKE_CUDA_STANDARD", 17),
+        #     ]
 
-        # CUDA
-        if "+cuda" in spec:
-            args += [
-                self.define("CUDAToolkit_ROOT", spec["cuda"].prefix),
-                self.define("CMAKE_CUDA_STANDARD", 17),
-            ]
-
-            arch_str = self._cuda_arch_str()
-            if arch_str:
-                args.append(self.define("CMAKE_CUDA_ARCHITECTURES", arch_str))
-                # flags custom :
-                args.append(self.define("CUDA_GPU_ARCH", "sm_%s" % arch_str.split(";")[0]))
-                args.append(self.define("CUDA_ENABLE_RDC", True))
-                args.append(self.define(
-                    "CMAKE_CUDA_FLAGS",
-                    "--cuda-gpu-arch=sm_%s --no-cuda-version-check" % arch_str.split(";")[0],
-                ))
+        #     arch_str = self._cuda_arch_str()
+        #     if arch_str:
+        #         args.append(self.define("CMAKE_CUDA_ARCHITECTURES", arch_str))
+        #         # flags custom :
+        #         args.append(self.define("CUDA_GPU_ARCH", "sm_%s" % arch_str.split(";")[0]))
+        #         args.append(self.define("CUDA_ENABLE_RDC", True))
+        #         args.append(self.define(
+        #             "CMAKE_CUDA_FLAGS",
+        #             "--cuda-gpu-arch=sm_%s --no-cuda-version-check" % arch_str.split(";")[0],
+        #         ))
 
         return args
 
 
-    def _build_suffix(self):
-        """Return a deterministic build suffix like:
-        ginkgo_cpu_mpi, ginkgo_cpu_mpi_omp, ginkgo_cuda_mpi_omp, etc.
-        """
-        spec = self.spec
-        parts = []
+    # def _build_suffix(self):
+    #     """Return a deterministic build suffix like:
+    #     ginkgo_cpu_mpi, ginkgo_cpu_mpi_omp, ginkgo_cuda_mpi_omp, etc.
+    #     """
+    #     spec = self.spec
+    #     parts = []
 
-        # solver
-        parts.append("ginkgo" if "+ginkgo" in spec else "petsc")
+    #     # solver
+    #     parts.append("ginkgo" if "+ginkgo" in spec else "petsc")
 
-        # device
-        parts.append("cuda" if "+cuda" in spec else "cpu")
+    #     # device
+    #     parts.append("cuda" if "+cuda" in spec else "cpu")
 
-        # parallel
-        if "+mpi" in spec:
-            parts.append("mpi")
-        if "+openmp" in spec:
-            parts.append("omp")
+    #     # parallel
+    #     if "+mpi" in spec:
+    #         parts.append("mpi")
+    #     if "+openmp" in spec:
+    #         parts.append("omp")
 
-        return "_".join(parts)
+    #     return "_".join(parts)
 
-    @property
-    def build_directory(self):
-        # This is the directory created inside the stage/source tree
-        return "build_" + self._build_suffix()
+    # @property
+    # def build_directory(self):
+    #     # This is the directory created inside the stage/source tree
+    #     return "build_" + self._build_suffix()
 
 
     @run_after("install")
@@ -281,5 +263,4 @@ class Opencarp(CMakePackage):
                     ),
                 )
             cusettings = Executable("cusettings")
-            flavor = self._build_suffix().replace("_", "-")  # ie: ginkgo-cpu-mpi-omp
-            cusettings(settings_file, "--flavor", flavor, "--software-root", str(self.prefix))
+            cusettings(settings_file, "--software-root", str(self.prefix))

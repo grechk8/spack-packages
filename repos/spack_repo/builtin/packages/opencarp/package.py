@@ -11,7 +11,7 @@ from spack_repo.builtin.build_systems.cmake import CMakePackage
 from spack.package import *
 
 
-class Opencarp(CMakePackage):
+class Opencarp(CMakePackage, CudaPackage):
     """The openCARP simulation software,
     an open cardiac electrophysiology simulator for in-silico experiments."""
 

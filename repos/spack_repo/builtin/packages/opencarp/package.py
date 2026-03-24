@@ -103,7 +103,6 @@ class Opencarp(CMakePackage):
     depends_on("zlib-api")
     depends_on("perl")
     depends_on("mpi")
-    depends_on("openmp", when="+openmp")
 
     # Necessary?
     # # Ginkgo is optional

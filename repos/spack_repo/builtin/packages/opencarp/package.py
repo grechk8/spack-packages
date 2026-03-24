@@ -118,6 +118,7 @@ class Opencarp(CMakePackage):
     depends_on("ginkgo~openmp", when="+ginkgo~openmp")
 
     depends_on("ginkgo+cuda",   when="+ginkgo+cuda")
+    depends_on("mpi+cuda",      when="+ginkgo+cuda")
     depends_on("ginkgo~cuda",   when="+ginkgo~cuda")
 
     # CUDA toolchain

@@ -71,15 +71,15 @@ class Opencarp(CMakePackage):
     variant("ginkgo", default=False, description="Build with Ginkgo linear solvers")
     variant("cuda", default=False, description="Enable CUDA support")
 
-    # ????
-    variant(
-        "cuda_arch",
-        default="none",
-        values=("none", "70", "75", "80", "86", "89", "90"),
-        multi=True,
-        description="CUDA architectures for CMAKE_CUDA_ARCHITECTURES",
-        when="+cuda",
-    )
+    # # ????
+    # variant(
+    #     "cuda_arch",
+    #     default="none",
+    #     values=("none", "70", "75", "80", "86", "89", "90"),
+    #     multi=True,
+    #     description="CUDA architectures for CMAKE_CUDA_ARCHITECTURES",
+    #     when="+cuda",
+    # )
 
 
     conflicts("+cuda", when="~ginkgo", msg="+cuda is supported only with +ginkgo")

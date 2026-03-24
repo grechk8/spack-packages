@@ -123,7 +123,6 @@ class Opencarp(CMakePackage):
     # MPI implementations with CUDA support
     depends_on("openmpi+cuda", when="+cuda ^openmpi")
     depends_on("mpich+cuda", when="+cuda ^mpich")
-    depends_on("mvapich2+cuda", when="+cuda ^mvapich2")
 
     # CUDA toolchain
     depends_on("cuda", when="+cuda")

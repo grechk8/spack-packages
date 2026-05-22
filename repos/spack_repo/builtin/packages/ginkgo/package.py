@@ -215,7 +215,7 @@ class Ginkgo(CMakePackage, CudaPackage, ROCmPackage):
 
         if spec.satisfies("+cuda"):
             archs = spec.variants["cuda_arch"].value
-            if archs != "none":
+            if "none" not in archs:
                 arch_str = ";".join(archs)
                 args.append("-DGINKGO_CUDA_ARCHITECTURES={0}".format(arch_str))
 
@@ -317,3 +317,4 @@ class Ginkgo(CMakePackage, CudaPackage, ROCmPackage):
             raise SkipTest("Test is only available for v1.4.0:")
 
         self._build_and_run_test("test_exportbuild")
+

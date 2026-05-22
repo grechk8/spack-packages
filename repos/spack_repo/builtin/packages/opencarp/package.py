@@ -69,13 +69,9 @@ class Opencarp(CMakePackage, CudaPackage):
     variant("meshtool", default=False, description="Installs the meshtool software")
     variant("openmp", default=True, description="Enable OpenMP support")
     variant("ginkgo", default=False, description="Build with Ginkgo linear solvers")
-
-
-
-
+    variant("cuda", default=False, description="Enable CUDA support")
 
     conflicts("+cuda", when="~ginkgo", msg="+cuda is supported only with +ginkgo")
-
 
     # Patch removing problematic steps in CMake process
     patch("opencarp7.patch", when="@7.0")
@@ -94,25 +90,26 @@ class Opencarp(CMakePackage, CudaPackage):
     depends_on("python")
     depends_on("zlib-api")
     depends_on("perl")
-
     depends_on("mpi")
-
-    # Ginkgo is optional
-    depends_on("rapidjson", when="+ginkgo", type="build")
 
     # Base requirement: allow multiple Ginkgo versions (1.5, 1.6, ..., develop)
     depends_on("ginkgo@1.5:", when="+ginkgo")
 
-    # sde variant exists only for newer Ginkgo versions (>=1.7)
-    depends_on("ginkgo~sde", when="+ginkgo ^ginkgo@1.7:")
-
     # Mirror opencarp features onto ginkgo (force overlay namespace)
+    depends_on("ginkgo+mpi", when="+ginkgo")
+
     depends_on("ginkgo+openmp", when="+ginkgo+openmp")
     depends_on("ginkgo~openmp", when="+ginkgo~openmp")
 
     depends_on("ginkgo+cuda",   when="+ginkgo+cuda")
     depends_on("ginkgo~cuda",   when="+ginkgo~cuda")
 
+    # MPI implementations with CUDA support
+    depends_on("openmpi+cuda", when="+cuda ^openmpi")
+    depends_on("mpich+cuda", when="+cuda ^mpich")
+
+    # CUDA toolchain
+    depends_on("cuda", when="+cuda")
 
 
     depends_on("py-carputils", when="+carputils", type=("build", "run"))
@@ -136,70 +133,21 @@ class Opencarp(CMakePackage, CudaPackage):
         depends_on("py-carputils@oc" + ver, when="@" + ver + " +carputils")
         depends_on("meshtool@oc" + ver, when="@" + ver + " +meshtool")
 
-    def _ginkgo_cmake_dir(self):
-        prefix = self.spec["ginkgo"].prefix
-        candidates = [
-            join_path(prefix, "lib", "cmake", "Ginkgo"),
-            join_path(prefix, "lib64", "cmake", "Ginkgo"),
-        ]
-        for d in candidates:
-            if os.path.isdir(d):
-                return d
-        return str(prefix)
-
-    def setup_build_environment(self, env):
-        if "+ginkgo" in self.spec:
-            env.prepend_path("CPATH", self.spec["rapidjson"].prefix.include)
-
-
     def cmake_args(self):
         spec = self.spec
         args = [
             self.define("DLOPEN", True),
             self.define("SPACK_BUILD", True),
             self.define("BUILD_EXTERNAL", False),
+            self.define("USE_OPENMP", "UTILS" if "+openmp" in spec else "OFF")
         ]
-
-
-        args += [
-             self.define("MPI_C_COMPILER", spec["mpi"].mpicc),
-             self.define("MPI_CXX_COMPILER", spec["mpi"].mpicxx),
-             self.define("MPIEXEC_EXECUTABLE", join_path(spec["mpi"].prefix.bin, "mpiexec")),
-
-            ]
 
         if "+ginkgo" in spec:
             args += [
-                self.define("GINKGO_DIR", spec["ginkgo"].prefix),
-                self.define("Ginkgo_DIR", self._ginkgo_cmake_dir()),
+                self.define("ENABLE_GINKGO", True),
             ]
 
         return args
-
-
-    def _build_suffix(self):
-        """Return a deterministic build suffix like:
-        ginkgo_cpu_mpi, ginkgo_cpu_mpi_omp, ginkgo_cuda_mpi_omp, etc.
-        """
-        spec = self.spec
-        parts = []
-
-        # solver
-        parts.append("ginkgo" if "+ginkgo" in spec else "petsc")
-
-        # device
-        parts.append("cuda" if "+cuda" in spec else "cpu")
-
-        # parallel
-        if "+openmp" in spec:
-            parts.append("omp")
-
-        return "_".join(parts)
-
-    @property
-    def build_directory(self):
-        # This is the directory created inside the stage/source tree
-        return "build_" + self._build_suffix()
 
 
     @run_after("install")
@@ -220,3 +168,4 @@ class Opencarp(CMakePackage, CudaPackage):
                 )
             cusettings = Executable("cusettings")
             cusettings(settings_file, "--software-root", str(self.prefix))
+
